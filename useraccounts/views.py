@@ -1,32 +1,38 @@
-from rest_framework.views import APIView
+from rest_framework import generics, status
 from rest_framework.response import Response
-from rest_framework import status, permissions
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
+from django.contrib.auth.models import User
+from .serializers import RegisterSerializer, UserSerializer  # We'll define these next
 
-# Register
-class RegisterView(APIView):
-    permission_classes = [permissions.AllowAny]
+# Register View
+class RegisterView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    permission_classes = (AllowAny,)
+    serializer_class = RegisterSerializer
+
+# Custom Login View (extends simplejwt's to return user data if needed)
+class LoginView(TokenObtainPairView):
+    permission_classes = (AllowAny,)
+
+# Logout View (blacklist refresh token for security; client removes access token)
+class LogoutView(generics.GenericAPIView):
+    permission_classes = (IsAuthenticated,)
 
     def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
-            return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            refresh_token = request.data["refresh"]
+            token = RefreshToken(refresh_token)
+            token.blacklist()  # Requires 'rest_framework_simplejwt.token_blacklist' in INSTALLED_APPS
+            return Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"detail": "Logout failed."}, status=status.HTTP_400_BAD_REQUEST)
 
-# Login
-class LoginView(APIView):
-    permission_classes = [permissions.AllowAny]
+# Authenticated User Check
+class UserCheckView(generics.RetrieveAPIView):
+    permission_classes = (IsAuthenticated,)
+    serializer_class = UserSerializer
 
-    def post(self, request):
-        serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data
-
-        # Generate JWT token
-        refresh = RefreshToken.for_user(user)
-        return Response({
-            'refresh': str(refresh),
-            'access': str(refresh.access_token)
-        })
+    def get_object(self):
+        return self.request.user
