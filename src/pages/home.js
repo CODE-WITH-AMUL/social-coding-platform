@@ -1,23 +1,17 @@
-// frontend/src/pages/Home.js
-// This is the public home/landing page (unauthenticated).
-// It serves as a "Get Started" page, with info about the platform and buttons to login/register.
-// Place it at root '/' in App.js routing (unprotected).
-
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React from "react";
+import { useAuth } from "../context/AuthContext";
+import { Navigate } from "react-router-dom";
 
 const Home = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) return <p>Loading...</p>;
+  if (!user) return <Navigate to="/login" />; // redirect to login if not authenticated
+
   return (
-    <div style={{ textAlign: 'center', padding: '50px' }}>
-      <h1>Welcome to Social Coding Platform</h1>
-      <p>A place to share, view, like, and collaborate on coding projects.</p>
-      <p>Get started by creating an account or logging in.</p>
-      <Link to="/register">
-        <button style={{ marginRight: '10px' }}>Get Started (Register)</button>
-      </Link>
-      <Link to="/login">
-        <button>Login</button>
-      </Link>
+    <div>
+      <h1>Welcome, {user.username} 👋</h1>
+      <p>This is your home page after login.</p>
     </div>
   );
 };
